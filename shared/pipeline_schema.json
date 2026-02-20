@@ -1,0 +1,81 @@
+{
+  "version": "1.0.0",
+  "nodeTypes": {
+    "csv_upload": {
+      "id": "csv_upload",
+      "label": "CSV Upload",
+      "category": "input",
+      "color": "#3B82F6",
+      "icon": "upload",
+      "config": {
+        "fileId": { "type": "string", "label": "Uploaded File", "required": true }
+      },
+      "inputs": [],
+      "outputs": ["dataframe"]
+    },
+    "remove_nulls": {
+      "id": "remove_nulls",
+      "label": "Remove Nulls",
+      "category": "data_preparation",
+      "color": "#8B5CF6",
+      "icon": "filter",
+      "config": {
+        "strategy": { "type": "select", "label": "Strategy", "options": ["drop_rows", "fill_mean", "fill_median", "fill_zero"], "default": "drop_rows" }
+      },
+      "inputs": ["dataframe"],
+      "outputs": ["dataframe"]
+    },
+    "train_test_split": {
+      "id": "train_test_split",
+      "label": "Train/Test Split",
+      "category": "data_preparation",
+      "color": "#8B5CF6",
+      "icon": "split",
+      "config": {
+        "test_size": { "type": "number", "label": "Test Size", "default": 0.2, "min": 0.1, "max": 0.5 },
+        "target_column": { "type": "string", "label": "Target Column", "required": true },
+        "random_state": { "type": "number", "label": "Random State", "default": 42 }
+      },
+      "inputs": ["dataframe"],
+      "outputs": ["train_data", "test_data"]
+    },
+    "linear_regression": {
+      "id": "linear_regression",
+      "label": "Linear Regression",
+      "category": "model",
+      "color": "#F59E0B",
+      "icon": "cpu",
+      "config": {},
+      "inputs": ["train_data"],
+      "outputs": ["model"]
+    },
+    "accuracy": {
+      "id": "accuracy",
+      "label": "Accuracy / R² Score",
+      "category": "evaluation",
+      "color": "#10B981",
+      "icon": "bar-chart",
+      "config": {},
+      "inputs": ["model", "test_data"],
+      "outputs": ["metrics"]
+    }
+  },
+  "categories": {
+    "input": { "label": "Input", "color": "#3B82F6", "icon": "database" },
+    "data_preparation": { "label": "Data Preparation", "color": "#8B5CF6", "icon": "settings" },
+    "model": { "label": "Models", "color": "#F59E0B", "icon": "cpu" },
+    "evaluation": { "label": "Evaluation", "color": "#10B981", "icon": "bar-chart" }
+  },
+  "freeTierLimits": {
+    "maxDatasetSizeMB": 5,
+    "maxRows": 10000,
+    "maxNodesPerWorkflow": 10,
+    "executionTimeoutSeconds": 30
+  },
+  "proFeatures": [
+    { "name": "GPU Training", "icon": "zap" },
+    { "name": "Large Dataset Mode", "icon": "hard-drive" },
+    { "name": "Parallel Execution", "icon": "layers" },
+    { "name": "AutoML", "icon": "sparkles" }
+  ]
+}

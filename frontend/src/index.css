@@ -1,0 +1,160 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  /* Layout Colors - Neutral Light Theme */
+  --color-bg-app: #ffffff;
+  --color-bg-panel: #ffffff;
+  --color-bg-canvas: #fafafa;
+  --color-bg-surface: #ffffff;
+  --color-bg-item-hover: #f4f4f5;
+
+  /* Legacy / Aliases to prevent breakage in older components */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #fafafa;
+  --color-bg-tertiary: #f4f4f5;
+  --color-bg-card: #ffffff;
+  --color-border-color: #e4e4e7;
+
+  /* Typography - Professional Neutral */
+  --color-text-primary: #18181b;
+  --color-text-secondary: #71717a;
+  --color-text-muted: #a1a1aa;
+
+  /* Brand Palette - More refined */
+  --color-accent: #2563eb;
+  --color-accent-soft: #f0f9ff;
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-edge: #d4d4d8;
+
+  /* Category Palette */
+  --color-cat-input: #3b82f6;
+  --color-cat-prep: #f59e0b;
+  --color-cat-model: #8b5cf6;
+  --color-cat-eval: #ec4899;
+
+  /* Radii */
+  --radius-panel: 0px;
+  --radius-node: 8px;
+  --radius-button: 6px;
+
+  /* Transitions */
+  --transition-fast: 100ms ease;
+  --transition-smooth: 250ms ease;
+}
+
+/* Base Styles */
+@layer base {
+  :root {
+    --accent: #2563eb;
+    --edge: #d4d4d8;
+    --text-muted: #a1a1aa;
+    --text-secondary: #71717a;
+    --border-subtle: #e4e4e7;
+    --border-color: #e4e4e7;
+    --bg-app: #ffffff;
+    --bg-primary: #ffffff;
+    --bg-secondary: #fafafa;
+    --bg-tertiary: #f4f4f5;
+    --bg-card: #ffffff;
+    --bg-panel: #ffffff;
+    --bg-canvas: #fafafa;
+    --text-primary: #18181b;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    font-weight: 450;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+  }
+
+  #root {
+    height: 100%;
+    width: 100%;
+  }
+}
+
+@layer components {
+  .section-title {
+    @apply text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4;
+  }
+
+  .shadow-premium {
+    box-shadow:
+      0 0 1px 0 rgba(0, 0, 0, 0.08),
+      0 2px 4px 0 rgba(0, 0, 0, 0.04),
+      0 12px 24px -4px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* React Flow Visuals */
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  border: 2px solid white !important;
+  background-color: #e4e7eb !important;
+  transition: all 300ms ease !important;
+}
+
+.react-flow__handle:hover {
+  background-color: var(--accent) !important;
+  transform: scale(1.25) !important;
+}
+
+.react-flow__edge-path {
+  stroke: #e2e8f0 !important;
+  stroke-width: 2 !important;
+  transition: all 0.2s;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent) !important;
+  stroke-width: 3 !important;
+  filter: drop-shadow(0 0 4px rgba(37, 99, 235, 0.3));
+}
+
+/* Animation Utilities */
+.edge-running {
+  stroke-dasharray: 10;
+  animation: dash-move 0.5s linear infinite;
+}
+
+@keyframes dash-move {
+  from {
+    stroke-dashoffset: 20;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-zinc-200 rounded-full hover:bg-zinc-300;
+}

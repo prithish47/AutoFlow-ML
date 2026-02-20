@@ -1,0 +1,207 @@
+import { createContext, useContext, useState, useCallback } from 'react';
+import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
+import { executeAPI, pipelineAPI, uploadAPI } from '../utils/api';
+
+const PipelineContext = createContext(null);
+
+export function PipelineProvider({ children }) {
+    const [nodes, setNodes] = useState([]);
+    const [edges, setEdges] = useState([]);
+    const [selectedNodeId, setSelectedNodeId] = useState(null);
+    const [pipelineName, setPipelineName] = useState('Untitled Pipeline');
+    const [pipelineId, setPipelineId] = useState(null);
+    const [executionState, setExecutionState] = useState('idle'); // idle | running | completed | failed
+    const [logs, setLogs] = useState([]);
+    const [results, setResults] = useState(null);
+    const [uploadedFiles, setUploadedFiles] = useState({});
+    const [isLocked, setIsLocked] = useState(false);
+    const [clipboard, setClipboard] = useState(null);
+
+    // Cascade edge cleanup when nodes are removed - prevents orphan edges
+    const onNodesChange = useCallback(
+        (changes) => {
+            const removeIds = new Set(
+                changes.filter(c => c.type === 'remove').map(c => c.id)
+            );
+            setNodes((nds) => applyNodeChanges(changes, nds));
+            if (removeIds.size > 0) {
+                setEdges((eds) => eds.filter(
+                    e => !removeIds.has(e.source) && !removeIds.has(e.target)
+                ));
+            }
+        },
+        []
+    );
+
+    const onEdgesChange = useCallback(
+        (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+        []
+    );
+
+    const deleteNodes = useCallback((nodeIds) => {
+        if (!nodeIds || nodeIds.length === 0) return;
+        const idSet = new Set(nodeIds);
+        setNodes((nds) => nds.filter(n => !idSet.has(n.id)));
+        setEdges((eds) => eds.filter(
+            e => !idSet.has(e.source) && !idSet.has(e.target)
+        ));
+        setSelectedNodeId((prev) => idSet.has(prev) ? null : prev);
+    }, []);
+
+    const deleteEdges = useCallback((edgeIds) => {
+        if (!edgeIds || edgeIds.length === 0) return;
+        const idSet = new Set(edgeIds);
+        setEdges((eds) => eds.filter(e => !idSet.has(e.id)));
+    }, []);
+
+    const copyToClipboard = useCallback((nodesToCopy) => {
+        if (nodesToCopy?.length) setClipboard(nodesToCopy);
+    }, []);
+
+    const pasteFromClipboard = useCallback((offset = { x: 30, y: 30 }, nodesToPaste = null) => {
+        const source = nodesToPaste ?? clipboard;
+        if (!source?.length) return null;
+        const now = Date.now();
+        const idMap = {};
+        const newNodes = source.map((n, i) => {
+            const newId = `${n.data?.nodeType || 'node'}-${now}-${i}`;
+            idMap[n.id] = newId;
+            return {
+                ...n,
+                id: newId,
+                position: {
+                    x: (n.position?.x ?? 0) + offset.x,
+                    y: (n.position?.y ?? 0) + offset.y
+                },
+                data: { ...n.data, status: 'idle' }
+            };
+        });
+        setNodes((nds) => [...nds, ...newNodes]);
+        return { nodes: newNodes, idMap };
+    }, [clipboard]);
+
+    const duplicateNodes = useCallback((nodesToDup) => {
+        if (!nodesToDup?.length) return;
+        pasteFromClipboard({ x: 30, y: 30 }, nodesToDup);
+    }, [pasteFromClipboard]);
+
+    // Upload a file
+    const uploadFile = useCallback(async (file) => {
+        const res = await uploadAPI.uploadCSV(file);
+        const fileData = res.data;
+        // Map fileId to absolute path for the ML engine
+        setUploadedFiles(prev => ({ ...prev, [fileData.fileId]: fileData.path }));
+        return fileData.fileId;
+    }, []);
+
+    const runPipeline = useCallback(async () => {
+        if (nodes.length === 0) return;
+
+        setExecutionState('running');
+        setLogs([{ time: new Date().toLocaleTimeString(), type: 'info', message: 'Initializing enterprise execution engine...' }]);
+        setResults(null);
+
+        // Reset node statuses
+        setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'running', error: null } })));
+
+        try {
+            const res = await executeAPI.run(nodes, edges, uploadedFiles);
+            const data = res.data;
+
+            // Update individual node statuses based on results
+            setNodes(nds => nds.map(n => {
+                const nodeRes = data.node_states?.[n.id];
+                return {
+                    ...n,
+                    data: {
+                        ...n.data,
+                        status: nodeRes || 'success',
+                        error: data.errors?.[n.id] || null
+                    }
+                };
+            }));
+
+            // Format logs correctly for the UI
+            const formattedLogs = (data.logs || []).map(l => ({
+                time: new Date(l.timestamp * 1000).toLocaleTimeString(),
+                type: l.level === 'error' ? 'error' : l.level === 'success' ? 'success' : 'info',
+                message: l.message
+            }));
+
+            setLogs(formattedLogs);
+            setResults(data.results || null);
+            setExecutionState(data.success ? 'completed' : 'failed');
+
+            return data;
+        } catch (err) {
+            const errMsg = err.response?.data?.error || err.message;
+            setExecutionState('failed');
+            setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), type: 'error', message: errMsg }]);
+            setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'failed', error: 'Pipeline interrupted' } })));
+            throw err;
+        }
+    }, [nodes, edges, uploadedFiles]);
+
+    const savePipeline = useCallback(async () => {
+        const data = { name: pipelineName, nodes, edges };
+        if (pipelineId) {
+            const res = await pipelineAPI.update(pipelineId, data);
+            return res.data.pipeline;
+        } else {
+            const res = await pipelineAPI.create(data);
+            setPipelineId(res.data.pipeline._id);
+            return res.data.pipeline;
+        }
+    }, [pipelineName, nodes, edges, pipelineId]);
+
+    const loadPipeline = useCallback(async (id) => {
+        const res = await pipelineAPI.get(id);
+        const p = res.data.pipeline;
+        setPipelineId(p._id);
+        setPipelineName(p.name);
+        setNodes(p.nodes || []);
+        setEdges(p.edges || []);
+        setResults(p.lastResults || null);
+        setExecutionState('idle');
+        setLogs([]);
+    }, []);
+
+    const clearPipeline = useCallback(() => {
+        setNodes([]);
+        setEdges([]);
+        setSelectedNodeId(null);
+        setPipelineName('Untitled Pipeline');
+        setPipelineId(null);
+        setExecutionState('idle');
+        setLogs([]);
+        setResults(null);
+        setUploadedFiles({});
+    }, []);
+
+    return (
+        <PipelineContext.Provider value={{
+            nodes, setNodes,
+            edges, setEdges,
+            onNodesChange, onEdgesChange,
+            selectedNodeId, setSelectedNodeId,
+            pipelineName, setPipelineName,
+            pipelineId, setPipelineId,
+            executionState, setExecutionState,
+            logs, setLogs,
+            results, setResults,
+            uploadedFiles, setUploadedFiles,
+            isLocked, setIsLocked,
+            clipboard, copyToClipboard, pasteFromClipboard, duplicateNodes,
+            deleteNodes, deleteEdges,
+            uploadFile,
+            runPipeline,
+            savePipeline,
+            loadPipeline,
+            clearPipeline
+        }}>
+            {children}
+        </PipelineContext.Provider>
+    );
+}
+
+export const usePipeline = () => useContext(PipelineContext);
