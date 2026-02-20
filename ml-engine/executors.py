@@ -89,6 +89,29 @@ def execute_remove_nulls(inputs, config, uploaded_files=None, run_id=None):
     }
 
 
+def execute_min_max_scaler(inputs, config, uploaded_files=None, run_id=None):
+    """Normalize numeric features to [0, 1] range."""
+    from sklearn.preprocessing import MinMaxScaler
+    df = inputs.get("dataframe")
+    if df is None:
+        raise ValueError("No dataframe input received")
+
+    df = df.copy()
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if not numeric_cols.empty:
+        scaler = MinMaxScaler()
+        df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+
+    return {
+        "dataframe": df,
+        "shape": list(df.shape),
+        "columns": list(df.columns),
+        "scaled_columns": list(numeric_cols),
+        "preview": df.head(5).to_dict(orient="records")
+    }
+
+
 def execute_train_test_split(inputs, config, uploaded_files=None, run_id=None):
     """Split dataframe into train and test sets."""
     df = inputs.get("dataframe")
@@ -107,7 +130,7 @@ def execute_train_test_split(inputs, config, uploaded_files=None, run_id=None):
     X = df.drop(columns=[target_column])
     y = df[target_column]
 
-    # Only keep numeric features
+    # Only keep numeric features for base demo
     X_numeric = X.select_dtypes(include=[np.number])
     if X_numeric.empty:
         raise ValueError("No numeric features found for model training")
@@ -140,12 +163,12 @@ def execute_linear_regression(inputs, config, uploaded_files=None, run_id=None):
 
     # Convert target to numeric if needed
     if y_train.dtype == object:
-        raise ValueError("Linear Regression requires a numeric target column. Got categorical values.")
+        raise ValueError("Linear Regression requires a numeric target column.")
 
     model = LinearRegression()
     model.fit(X_train, y_train)
 
-    # Save model if run_id is provided
+    # Save model
     model_saved = False
     if run_id:
         models_dir = os.path.join(os.path.dirname(__file__), "temp_models")
@@ -154,7 +177,6 @@ def execute_linear_regression(inputs, config, uploaded_files=None, run_id=None):
         joblib.dump(model, model_path)
         model_saved = True
 
-    # Feature importance (coefficients)
     feature_importance = {
         col: round(float(coef), 4)
         for col, coef in zip(X_train.columns, model.coef_)
@@ -165,6 +187,53 @@ def execute_linear_regression(inputs, config, uploaded_files=None, run_id=None):
         "model_type": "linear_regression",
         "feature_importance": feature_importance,
         "intercept": round(float(model.intercept_), 4),
+        "feature_columns": list(X_train.columns),
+        "model_saved": model_saved
+    }
+
+
+def execute_xgboost(inputs, config, uploaded_files=None, run_id=None):
+    """Train an XGBoost regression model."""
+    import joblib
+    from xgboost import XGBRegressor
+    train_data = inputs.get("train_data")
+    if train_data is None:
+        raise ValueError("No training data input received")
+
+    X_train = train_data["X"]
+    y_train = train_data["y"]
+
+    n_estimators = int(config.get("n_estimators", 100))
+    learning_rate = float(config.get("learning_rate", 0.1))
+    max_depth = int(config.get("max_depth", 6))
+
+    model = XGBRegressor(
+        n_estimators=n_estimators,
+        learning_rate=learning_rate,
+        max_depth=max_depth,
+        random_state=42
+    )
+    model.fit(X_train, y_train)
+
+    model_saved = False
+    if run_id:
+        models_dir = os.path.join(os.path.dirname(__file__), "temp_models")
+        os.makedirs(models_dir, exist_ok=True)
+        model_path = os.path.join(models_dir, f"{run_id}_model.pkl")
+        joblib.dump(model, model_path)
+        model_saved = True
+
+    # Get feature importance from XGBoost
+    importances = model.feature_importances_
+    feature_importance = {
+        col: round(float(imp), 4)
+        for col, imp in zip(X_train.columns, importances)
+    }
+
+    return {
+        "model": model,
+        "model_type": "xgboost",
+        "feature_importance": feature_importance,
         "feature_columns": list(X_train.columns),
         "model_saved": model_saved
     }
@@ -193,7 +262,7 @@ def execute_accuracy(inputs, config, uploaded_files=None, run_id=None):
     rmse = round(float(np.sqrt(mean_squared_error(y_test, y_pred))), 4)
     mae = round(float(mean_absolute_error(y_test, y_pred)), 4)
 
-    # Create prediction chart data
+    # Chart data
     y_test_list = y_test.tolist()
     y_pred_list = [round(float(v), 4) for v in y_pred.tolist()]
     chart_data = [
@@ -201,7 +270,6 @@ def execute_accuracy(inputs, config, uploaded_files=None, run_id=None):
         for i, (a, p) in enumerate(zip(y_test_list[:50], y_pred_list[:50]))
     ]
 
-    # Feature importance from model
     feature_importance = inputs.get("feature_importance", {})
     feature_chart = [
         {"feature": k, "importance": abs(v)}
@@ -220,9 +288,9 @@ def execute_accuracy(inputs, config, uploaded_files=None, run_id=None):
             "predictions": chart_data,
             "feature_importance": feature_chart
         },
-        "predictions_preview": [
+        "preview": [
             {"actual": round(float(a), 4), "predicted": round(float(p), 4)}
-            for a, p in zip(y_test_list[:20], y_pred_list[:20])
+            for a, p in zip(y_test_list[:10], y_pred_list[:10])
         ]
     }
 
@@ -232,7 +300,9 @@ def execute_accuracy(inputs, config, uploaded_files=None, run_id=None):
 EXECUTORS = {
     "csv_upload": execute_csv_upload,
     "remove_nulls": execute_remove_nulls,
+    "min_max_scaler": execute_min_max_scaler,
     "train_test_split": execute_train_test_split,
     "linear_regression": execute_linear_regression,
+    "xgboost": execute_xgboost,
     "accuracy": execute_accuracy,
 }

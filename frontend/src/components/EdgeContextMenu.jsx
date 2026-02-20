@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Trash2 } from 'lucide-react';
 
 export default function EdgeContextMenu({ x, y, onDelete, onClose }) {
     const ref = useRef(null);
@@ -17,7 +18,7 @@ export default function EdgeContextMenu({ x, y, onDelete, onClose }) {
     return (
         <div
             ref={ref}
-            className="fixed z-[9999] min-w-[140px] py-1 bg-white border border-zinc-200 rounded-lg shadow-xl"
+            className="fixed z-[9999] min-w-[160px] py-1 bg-white border border-black/5 rounded-xl shadow-2xl overflow-hidden"
             style={{ left: x, top: y }}
             onClick={(e) => e.stopPropagation()}
         >
@@ -27,14 +28,10 @@ export default function EdgeContextMenu({ x, y, onDelete, onClose }) {
                     onDelete?.();
                     onClose?.();
                 }}
-                className="w-full text-left px-3 py-2 text-[12px] font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-[#dc2626] hover:bg-[#dc2626] hover:text-white transition-all flex items-center justify-between group"
             >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    <line x1="10" y1="11" x2="10" y2="17" />
-                    <line x1="14" y1="11" x2="14" y2="17" />
-                </svg>
-                Delete Edge
+                <span>Delete Edge</span>
+                <Trash2 size={14} />
             </button>
         </div>
     );
