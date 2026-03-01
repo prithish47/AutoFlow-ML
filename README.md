@@ -1,26 +1,60 @@
 # FlowML
 
-A no-code ML pipeline builder where you describe what you want in plain English, and it builds the entire pipeline for you on a visual canvas.
+A visual, no-code platform for building and running machine learning pipelines. Instead of writing code in notebooks, you drag ML operations onto a canvas, connect them, configure them, and hit run.
 
-## What is this?
+## The idea
 
-Most ML workflows follow the same pattern — load data, clean it, split it, train a model, evaluate. But every time, you're writing the same boilerplate in a Jupyter notebook. AutoFlow ML replaces that with a visual drag-and-drop canvas. You connect nodes like building blocks, hit run, and the pipeline executes end-to-end.
+Every ML workflow is fundamentally the same graph — data goes in, gets cleaned, gets split, a model trains on it, and you evaluate the results. But we write this as code every single time, managing imports, variable names, execution order, and error handling manually.
 
-The interesting part: you don't even have to build the pipeline manually. Just type something like *"predict house prices using random forest"* into the AI prompt, and the system generates a complete, runnable pipeline on the canvas automatically.
+FlowML makes that graph *literal*. Each operation is a node on a canvas. You connect nodes with edges to define data flow. The system handles the rest — it figures out the correct execution order, passes data between steps, and gives you results with interactive charts.
 
-## How the AI generation works
+The core of this project is the **pipeline execution engine**. It's not a UI wrapper around sklearn. It's a real DAG runtime.
 
-This isn't just throwing a prompt at an LLM and hoping for valid output. The architecture is deliberately split:
+## How the engine works
 
-1. **Gemini receives the user's prompt** and returns only an *intent* — a structured JSON with the problem type, input type, and which models to use.
-2. **The backend is the single authority** on pipeline structure. It takes that intent and deterministically constructs valid nodes and edges. The LLM never decides what nodes exist or how they connect.
-3. If the LLM returns garbage, the system falls back to a safe default pipeline. It never crashes, never produces an invalid graph.
+When you hit "Run", this is what happens:
 
-This means no hallucinated node types, no impossible connections, no cycles in the graph. The AI understands *what you want*, but the backend decides *how to build it*.
+1. **The frontend sends the graph** (nodes + edges) to the backend, which forwards it to the Python ML engine.
+2. **The engine validates the DAG** — checks for cycles, orphan nodes, and structural issues.
+3. **Topological sort** determines execution order. A model node won't run before the split node that feeds it.
+4. **Nodes execute sequentially** in dependency order. Each node receives the merged outputs of all its parent nodes as input.
+5. **Results flow back** — metrics, charts, feature importance, model artifacts — all rendered in the UI.
+
+The key design choice: **deep-merging parent outputs**. When a node has multiple parents (like a comparison node receiving metrics from two different evaluators), all parent outputs get merged into a single input dict. This is what makes branching pipelines possible without any special-case logic.
+
+## The node system
+
+Every ML operation is an "executor" — a single Python function that takes inputs, config, and returns outputs. The executor registry maps node types to functions:
+
+```python
+EXECUTORS = {
+    "csv_upload": execute_csv_upload,
+    "remove_nulls": execute_remove_nulls,
+    "train_test_split": execute_train_test_split,
+    "linear_regression": execute_linear_regression,
+    "random_forest": execute_random_forest,
+    "accuracy": execute_accuracy,
+    "model_comparison": execute_model_comparison,
+    ...
+}
+```
+
+Adding a new node type is just writing one function and adding one line to this dict. The canvas, the runner, the validation — everything else picks it up automatically.
+
+**Available nodes:**
+
+| Category | Nodes | What they do |
+|----------|-------|-------------|
+| Input | CSV Upload, Sample Dataset | Load data (user files or built-in Iris/Housing) |
+| Preprocessing | Remove Nulls, Min-Max Scaler | Clean and normalize data |
+| Splitting | Train/Test Split | Configurable ratio and random state |
+| Models | Linear Regression, Random Forest, XGBoost | Train with auto-detected problem type |
+| Evaluation | Accuracy/Metrics | R², RMSE, MAE with charts |
+| Comparison | Model Comparison | Rank N models, pick the best |
 
 ## Multi-model comparison
 
-One of the things I'm most proud of — you can compare multiple models in a single pipeline. Say you type *"compare linear regression and random forest on iris dataset"*. The system generates a **branching pipeline**:
+You can build branching pipelines that train multiple models in parallel, evaluate each one independently, and then converge into a comparison node:
 
 ```
                     ┌── Linear Regression ── Evaluator ──┐
@@ -28,72 +62,59 @@ Data → Clean → Split                                      → Comparison →
                     └── Random Forest ────── Evaluator ──┘
 ```
 
-Each branch trains and evaluates independently, then the comparison node aggregates all the metrics and picks the winner. It's basically AutoML but you can see everything happening.
+The comparison node aggregates metrics from all branches and ranks the models. This works because of the deep-merge approach — the runner doesn't care how many parents a node has.
 
-## AI explainability
+## The canvas
 
-There's a built-in AI tutor panel. After you build a pipeline (manually or via AI), you can click "Explain" and it generates a step-by-step breakdown of what each node does and *why* it's needed. You can also ask follow-up questions about your specific pipeline — the AI answers based on the actual graph context, not generic ML knowledge.
+The frontend uses React Flow to render the pipeline as an interactive graph. You can:
 
-This was built with beginners in mind. The goal is: you build a pipeline, you run it, and then you *understand* what you just did.
+- Drag nodes from a sidebar palette onto the canvas
+- Connect nodes by dragging between ports
+- Configure each node (target column, test split ratio, hyperparameters) via a side panel
+- See real-time status on each node during execution (idle → running → success/failed)
+- View execution logs in a bottom console panel
+- See a metrics dashboard with charts after the run completes
 
-## The pipeline engine
+## Additional features
 
-Under the hood, every pipeline is a DAG (directed acyclic graph). The Python ML engine:
+**AI Pipeline Generation** — Instead of building manually, you can type a natural language prompt like *"predict house prices with random forest"* and the system generates a complete pipeline on the canvas. Under the hood, Gemini returns a structured intent, and the backend deterministically maps it to valid nodes and edges. The AI never decides graph structure directly.
 
-- Validates the graph has no cycles
-- Topologically sorts the nodes
-- Executes them in dependency order
-- Passes outputs from parent nodes to children (with deep-merging for multi-branch scenarios)
+**AI Explainability** — A built-in panel that explains your pipeline step-by-step and lets you ask follow-up questions about what each node does. Useful if you're learning ML by building pipelines rather than reading documentation.
 
-Each node type has its own executor function. Adding a new ML operation is just writing one Python function and registering it — the rest of the system picks it up automatically.
-
-## What nodes are available
-
-- **Input**: CSV upload, or built-in sample datasets (Iris, California Housing)
-- **Preprocessing**: Remove nulls (drop/fill mean/median/zero), Min-Max scaling
-- **Splitting**: Train/test split with configurable ratio
-- **Models**: Linear Regression, Random Forest (auto-detects classification vs regression), XGBoost
-- **Evaluation**: R² score, RMSE, MAE — with actual vs predicted charts and feature importance
-- **Comparison**: Aggregates metrics from multiple models, ranks them, picks the best
+**Metrics Dashboard** — After execution, interactive Recharts visualizations show actual vs predicted scatter plots, feature importance bars, and model comparison leaderboards.
 
 ## Tech stack
 
-- **Frontend**: React 19, Vite, React Flow (for the canvas), Tailwind CSS, Framer Motion, Recharts
-- **Backend**: Node.js, Express, MongoDB Atlas, JWT auth
+- **Frontend**: React 19, Vite, React Flow, Tailwind CSS, Framer Motion, Recharts
+- **Backend**: Node.js, Express, MongoDB, JWT auth
 - **ML Engine**: Python, FastAPI, scikit-learn, XGBoost
-- **AI**: Google Gemini (for pipeline generation and explainability)
+- **AI**: Google Gemini (for generation and explainability features)
 
-## Running it locally
+## Running locally
 
-You need three terminals:
+Three terminals:
 
 ```bash
 # Backend (port 5000)
-cd backend
-npm install
-node server.js
+cd backend && npm install && node server.js
 
 # ML Engine (port 5001)
-cd ml-engine
-pip install -r requirements.txt
-python main.py
+cd ml-engine && pip install -r requirements.txt && python main.py
 
 # Frontend (port 3000)
-cd frontend
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
 ```
 
-You'll need a `.env` file in the backend with your MongoDB URI, Gemini API key, and JWT secret. Check `.env.example` for the format.
+Create a `.env` in the backend directory — see `.env.example` for what's needed.
 
 ## Project structure
 
 ```
 FlowML/
-├── frontend/          # React app — canvas, nodes, panels, charts
-├── backend/           # Express API — auth, AI calls, pipeline CRUD
-├── ml-engine/         # FastAPI — DAG execution, model training
-└── shared/            # Pipeline schema shared between services
+├── frontend/          # React app — canvas, nodes, config panels, charts
+├── backend/           # Express API — auth, pipeline CRUD, AI endpoints
+├── ml-engine/         # FastAPI — DAG engine, executors, model training
+└── shared/            # Pipeline schema shared across services
 ```
 
 ## License
