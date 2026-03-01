@@ -10,14 +10,14 @@ function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center">
-        <div className="text-center animate-in fade-in zoom-in-95 duration-700">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--accent)] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-500/20">
-            <svg className="w-8 h-8 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#2563eb]/10 flex items-center justify-center mx-auto mb-6 border border-[#2563eb]/20 shadow-xl shadow-blue-500/5">
+            <svg className="w-8 h-8 text-[#2563eb] animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <p className="text-[12px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Loading FlowML</p>
+          <p className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.3em] ml-1">Loading FlowML</p>
         </div>
       </div>
     );

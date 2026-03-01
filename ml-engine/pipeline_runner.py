@@ -141,7 +141,11 @@ def run_pipeline(nodes, edges, executors, uploaded_files=None, timeout=30):
         for pid in parent_ids:
             if pid in node_outputs:
                 for key, value in node_outputs[pid].items():
-                    inputs[key] = value
+                    # Deep-merge dict values (e.g. model_metrics from multiple eval nodes)
+                    if key in inputs and isinstance(inputs[key], dict) and isinstance(value, dict):
+                        inputs[key] = {**inputs[key], **value}
+                    else:
+                        inputs[key] = value
 
         node_states[node_id] = "running"
         logs.append({
@@ -169,6 +173,8 @@ def run_pipeline(nodes, edges, executors, uploaded_files=None, timeout=30):
                 results[node_id] = output["metrics"]
             if "chart_data" in output:
                 results[f"{node_id}_chart"] = output["chart_data"]
+            if "comparison_result" in output:
+                results[f"{node_id}_comparison"] = output["comparison_result"]
 
             logs.append({
                 "level": "success",

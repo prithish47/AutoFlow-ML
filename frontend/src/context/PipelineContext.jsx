@@ -16,6 +16,9 @@ export function PipelineProvider({ children }) {
     const [uploadedFiles, setUploadedFiles] = useState({});
     const [isLocked, setIsLocked] = useState(false);
     const [clipboard, setClipboard] = useState(null);
+    const [modelDownloadAvailable, setModelDownloadAvailable] = useState(false);
+    const [modelFileId, setModelFileId] = useState(null);
+    const [hasDismissedOnboarding, setHasDismissedOnboarding] = useState(false);
 
     // Cascade edge cleanup when nodes are removed - prevents orphan edges
     const onNodesChange = useCallback(
@@ -132,6 +135,14 @@ export function PipelineProvider({ children }) {
             setResults(data.results || null);
             setExecutionState(data.success ? 'completed' : 'failed');
 
+            if (data.model_download_available) {
+                setModelDownloadAvailable(true);
+                setModelFileId(data.model_file_id);
+            } else {
+                setModelDownloadAvailable(false);
+                setModelFileId(null);
+            }
+
             return data;
         } catch (err) {
             const errMsg = err.response?.data?.error || err.message;
@@ -176,7 +187,23 @@ export function PipelineProvider({ children }) {
         setLogs([]);
         setResults(null);
         setUploadedFiles({});
+        setModelDownloadAvailable(false);
+        setModelFileId(null);
+        setHasDismissedOnboarding(false);
     }, []);
+
+    const downloadModel = useCallback(() => {
+        if (!modelDownloadAvailable || !modelFileId) return;
+
+        // Use a hidden anchor tag to trigger the browser download
+        const url = `${executeAPI.baseURL}/execute/download-model/${modelFileId}`;
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `model_${modelFileId}.pkl`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }, [modelDownloadAvailable, modelFileId]);
 
     return (
         <PipelineContext.Provider value={{
@@ -197,7 +224,10 @@ export function PipelineProvider({ children }) {
             runPipeline,
             savePipeline,
             loadPipeline,
-            clearPipeline
+            clearPipeline,
+            downloadModel,
+            modelDownloadAvailable,
+            hasDismissedOnboarding, setHasDismissedOnboarding
         }}>
             {children}
         </PipelineContext.Provider>

@@ -8,10 +8,38 @@
       "color": "#3B82F6",
       "icon": "upload",
       "config": {
-        "fileId": { "type": "string", "label": "Uploaded File", "required": true }
+        "fileId": {
+          "type": "string",
+          "label": "Uploaded File",
+          "required": true
+        }
       },
       "inputs": [],
-      "outputs": ["dataframe"]
+      "outputs": [
+        "dataframe"
+      ]
+    },
+    "sample_dataset": {
+      "id": "sample_dataset",
+      "label": "Sample Dataset",
+      "category": "input",
+      "color": "#3B82F6",
+      "icon": "database",
+      "config": {
+        "dataset_name": {
+          "type": "select",
+          "label": "Dataset",
+          "options": [
+            "iris",
+            "housing"
+          ],
+          "default": "iris"
+        }
+      },
+      "inputs": [],
+      "outputs": [
+        "dataframe"
+      ]
     },
     "remove_nulls": {
       "id": "remove_nulls",
@@ -20,10 +48,24 @@
       "color": "#8B5CF6",
       "icon": "filter",
       "config": {
-        "strategy": { "type": "select", "label": "Strategy", "options": ["drop_rows", "fill_mean", "fill_median", "fill_zero"], "default": "drop_rows" }
+        "strategy": {
+          "type": "select",
+          "label": "Strategy",
+          "options": [
+            "drop_rows",
+            "fill_mean",
+            "fill_median",
+            "fill_zero"
+          ],
+          "default": "drop_rows"
+        }
       },
-      "inputs": ["dataframe"],
-      "outputs": ["dataframe"]
+      "inputs": [
+        "dataframe"
+      ],
+      "outputs": [
+        "dataframe"
+      ]
     },
     "train_test_split": {
       "id": "train_test_split",
@@ -32,12 +74,31 @@
       "color": "#8B5CF6",
       "icon": "split",
       "config": {
-        "test_size": { "type": "number", "label": "Test Size", "default": 0.2, "min": 0.1, "max": 0.5 },
-        "target_column": { "type": "string", "label": "Target Column", "required": true },
-        "random_state": { "type": "number", "label": "Random State", "default": 42 }
+        "test_size": {
+          "type": "number",
+          "label": "Test Size",
+          "default": 0.2,
+          "min": 0.1,
+          "max": 0.5
+        },
+        "target_column": {
+          "type": "string",
+          "label": "Target Column",
+          "required": true
+        },
+        "random_state": {
+          "type": "number",
+          "label": "Random State",
+          "default": 42
+        }
       },
-      "inputs": ["dataframe"],
-      "outputs": ["train_data", "test_data"]
+      "inputs": [
+        "dataframe"
+      ],
+      "outputs": [
+        "train_data",
+        "test_data"
+      ]
     },
     "linear_regression": {
       "id": "linear_regression",
@@ -46,8 +107,42 @@
       "color": "#F59E0B",
       "icon": "cpu",
       "config": {},
-      "inputs": ["train_data"],
-      "outputs": ["model"]
+      "inputs": [
+        "train_data"
+      ],
+      "outputs": [
+        "model"
+      ]
+    },
+    "random_forest": {
+      "id": "random_forest",
+      "label": "Random Forest",
+      "category": "model",
+      "color": "#F59E0B",
+      "icon": "trees",
+      "config": {
+        "n_estimators": {
+          "type": "number",
+          "label": "Estimators",
+          "default": 100
+        },
+        "max_depth": {
+          "type": "number",
+          "label": "Max Depth",
+          "default": null
+        },
+        "random_state": {
+          "type": "number",
+          "label": "Random Seed",
+          "default": 42
+        }
+      },
+      "inputs": [
+        "train_data"
+      ],
+      "outputs": [
+        "model"
+      ]
     },
     "accuracy": {
       "id": "accuracy",
@@ -56,15 +151,60 @@
       "color": "#10B981",
       "icon": "bar-chart",
       "config": {},
-      "inputs": ["model", "test_data"],
-      "outputs": ["metrics"]
+      "inputs": [
+        "model",
+        "test_data"
+      ],
+      "outputs": [
+        "metrics"
+      ]
+    },
+    "model_comparison": {
+      "id": "model_comparison",
+      "label": "Model Comparison",
+      "category": "evaluation",
+      "color": "#10B981",
+      "icon": "trophy",
+      "config": {
+        "problem_type": {
+          "type": "select",
+          "label": "Problem Type",
+          "options": [
+            "regression",
+            "classification"
+          ],
+          "default": "regression"
+        }
+      },
+      "inputs": [
+        "metrics"
+      ],
+      "outputs": [
+        "comparison_result"
+      ]
     }
   },
   "categories": {
-    "input": { "label": "Input", "color": "#3B82F6", "icon": "database" },
-    "data_preparation": { "label": "Data Preparation", "color": "#8B5CF6", "icon": "settings" },
-    "model": { "label": "Models", "color": "#F59E0B", "icon": "cpu" },
-    "evaluation": { "label": "Evaluation", "color": "#10B981", "icon": "bar-chart" }
+    "input": {
+      "label": "Input",
+      "color": "#3B82F6",
+      "icon": "database"
+    },
+    "data_preparation": {
+      "label": "Data Preparation",
+      "color": "#8B5CF6",
+      "icon": "settings"
+    },
+    "model": {
+      "label": "Models",
+      "color": "#F59E0B",
+      "icon": "cpu"
+    },
+    "evaluation": {
+      "label": "Evaluation",
+      "color": "#10B981",
+      "icon": "bar-chart"
+    }
   },
   "freeTierLimits": {
     "maxDatasetSizeMB": 5,
@@ -73,9 +213,21 @@
     "executionTimeoutSeconds": 30
   },
   "proFeatures": [
-    { "name": "GPU Training", "icon": "zap" },
-    { "name": "Large Dataset Mode", "icon": "hard-drive" },
-    { "name": "Parallel Execution", "icon": "layers" },
-    { "name": "AutoML", "icon": "sparkles" }
+    {
+      "name": "GPU Training",
+      "icon": "zap"
+    },
+    {
+      "name": "Large Dataset Mode",
+      "icon": "hard-drive"
+    },
+    {
+      "name": "Parallel Execution",
+      "icon": "layers"
+    },
+    {
+      "name": "AutoML",
+      "icon": "sparkles"
+    }
   ]
 }

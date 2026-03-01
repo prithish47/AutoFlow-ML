@@ -13,6 +13,7 @@ import {
     SelectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { usePipeline } from '../context/PipelineContext';
 import CustomNode from './CustomNode';
 import CustomEdge from './CustomEdge';
@@ -25,15 +26,15 @@ const nodeTypes = { custom: CustomNode };
 const edgeTypes = { default: CustomEdge };
 
 const connectionLineStyle = {
-    stroke: '#18181b',
-    strokeWidth: 2,
+    stroke: '#0ea5e9',
+    strokeWidth: 3,
 };
 
 const defaultEdgeOptions = {
     type: 'default',
     markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: '#d4d4d8',
+        color: '#0ea5e9',
     },
 };
 
@@ -49,8 +50,8 @@ function isDuplicateEdge(edges, source, target, sourceHandle, targetHandle) {
 }
 
 // Helper: generate stable edge id
-function getEdgeId(source, target) {
-    return `e-${source}-${target}-${Date.now()}`;
+function getEdgeId(source, target, sourceHandle, targetHandle) {
+    return `e-${source}-${sourceHandle || 'val'}-${target}-${targetHandle || 'val'}`;
 }
 
 export default function PipelineCanvas() {
@@ -76,10 +77,10 @@ export default function PipelineCanvas() {
     } = usePipeline();
 
     const [isConnecting, setIsConnecting] = useState(false);
-    const [isFullscreen, setIsFullscreen] = useState(false);
     const [contextMenu, setContextMenu] = useState(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
-    // Connection validation: no self-connect, no duplicates
+    // Connection validation
     const isValidConnection = useCallback(
         (connection) => {
             if (!connection?.source || !connection?.target) return false;
@@ -88,12 +89,26 @@ export default function PipelineCanvas() {
             if (isDuplicateEdge(edges, connection.source, connection.target, connection.sourceHandle, connection.targetHandle)) {
                 return false;
             }
+
+            const sourceNode = nodes.find(n => n.id === connection.source);
+            const targetNode = nodes.find(n => n.id === connection.target);
+            if (!sourceNode || !targetNode) return false;
+
+            const sourceDef = NODE_TYPES[sourceNode.data.nodeType];
+            const targetDef = NODE_TYPES[targetNode.data.nodeType];
+
+            if (sourceDef.outputs.length === 0 || targetDef.inputs.length === 0) return false;
+
+            // Advanced validation
+            if (sourceDef.category === 'input' && targetDef.category === 'model') {
+                return false;
+            }
+
             return true;
         },
-        [edges, isLocked]
+        [edges, isLocked, nodes]
     );
 
-    // onConnect with validation + auto-remove conflicting target handle edges
     const onConnect = useCallback(
         (params) => {
             if (!isValidConnection(params)) return;
@@ -102,7 +117,11 @@ export default function PipelineCanvas() {
                     (e) => !(e.target === params.target && (e.targetHandle ?? null) === (params.targetHandle ?? null))
                 );
                 return addEdge(
-                    { ...params, type: 'default', id: getEdgeId(params.source, params.target) },
+                    {
+                        ...params,
+                        type: 'default',
+                        id: getEdgeId(params.source, params.target, params.sourceHandle, params.targetHandle)
+                    },
                     filtered
                 );
             });
@@ -155,102 +174,17 @@ export default function PipelineCanvas() {
                 },
             };
 
-            const currentEdges = reactFlowInstance.getEdges();
-            const currentNodes = reactFlowInstance.getNodes();
-            let edgeToSplit = null;
-
-            for (const edge of currentEdges) {
-                const source = currentNodes.find((n) => n.id === edge.source);
-                const target = currentNodes.find((n) => n.id === edge.target);
-                if (source && target) {
-                    const midX = (source.position.x + target.position.x) / 2;
-                    const midY = (source.position.y + target.position.y) / 2;
-                    const d = Math.sqrt(Math.pow(position.x - midX, 2) + Math.pow(position.y - midY, 2));
-                    if (d < 80) {
-                        edgeToSplit = edge;
-                        break;
-                    }
-                }
-            }
-
-            if (edgeToSplit) {
-                const newEdges = [
-                    { id: getEdgeId(edgeToSplit.source, newNodeId), source: edgeToSplit.source, target: newNodeId, type: 'default' },
-                    { id: getEdgeId(newNodeId, edgeToSplit.target), source: newNodeId, target: edgeToSplit.target, type: 'default' },
-                ];
-                setEdges((eds) => eds.filter((e) => e.id !== edgeToSplit.id).concat(newEdges));
-            }
-
             setNodes((nds) => [...nds, newNode]);
         },
-        [reactFlowInstance, setNodes, setEdges]
-    );
-
-    const onEdgeDoubleClick = useCallback(
-        (event, edge) => {
-            const sourceNode = nodes.find((n) => n.id === edge.source);
-            const targetNode = nodes.find((n) => n.id === edge.target);
-            if (!sourceNode || !targetNode) return;
-
-            const position = {
-                x: (sourceNode.position.x + targetNode.position.x) / 2,
-                y: (sourceNode.position.y + targetNode.position.y) / 2,
-            };
-
-            const type = 'remove_nulls';
-            const nodeDef = NODE_TYPES[type];
-            const newNodeId = `${type}-${Date.now()}`;
-
-            const newNode = {
-                id: newNodeId,
-                type: 'custom',
-                position,
-                data: {
-                    label: nodeDef.label,
-                    nodeType: type,
-                    icon: nodeDef.icon,
-                    category: nodeDef.category,
-                    description: nodeDef.description,
-                    inputs: nodeDef.inputs,
-                    outputs: nodeDef.outputs,
-                    config: {},
-                    status: 'idle',
-                },
-            };
-
-            const newEdges = [
-                { id: getEdgeId(edge.source, newNodeId), source: edge.source, target: newNodeId, type: 'default' },
-                { id: getEdgeId(newNodeId, edge.target), source: newNodeId, target: edge.target, type: 'default' },
-            ];
-
-            setNodes((nds) => nds.concat(newNode));
-            setEdges((eds) => eds.filter((e) => e.id !== edge.id).concat(newEdges));
-        },
-        [nodes, setNodes, setEdges]
+        [reactFlowInstance, setNodes]
     );
 
     const onConnectStart = useCallback(() => setIsConnecting(true), []);
     const onConnectEnd = useCallback(() => setIsConnecting(false), []);
 
-    const onNodeClick = useCallback(
-        (_, node) => {
-            setSelectedNodeId(node.id);
-        },
-        [setSelectedNodeId]
-    );
+    const onNodeClick = useCallback((_, node) => setSelectedNodeId(node.id), [setSelectedNodeId]);
+    const onPaneClick = useCallback(() => setSelectedNodeId(null), [setSelectedNodeId]);
 
-    const onPaneClick = useCallback(() => {
-        setSelectedNodeId(null);
-    }, [setSelectedNodeId]);
-
-    const onEdgeClick = useCallback(
-        (_, edge) => {
-            setSelectedNodeId(null);
-        },
-        [setSelectedNodeId]
-    );
-
-    // Context menu: Delete Node
     const onNodeContextMenu = useCallback(
         (event, node) => {
             event.preventDefault();
@@ -260,7 +194,6 @@ export default function PipelineCanvas() {
         [isLocked]
     );
 
-    // Context menu: Delete Edge
     const onEdgeContextMenu = useCallback(
         (event, edge) => {
             event.preventDefault();
@@ -270,101 +203,53 @@ export default function PipelineCanvas() {
         [isLocked]
     );
 
-    // Prevent delete during execution
-    const onBeforeDelete = useCallback(
-        ({ nodes: nodesToDelete, edges: edgesToDelete }) => {
-            if (executionState === 'running') return false;
-            return { nodes: nodesToDelete, edges: edgesToDelete };
-        },
-        [executionState]
-    );
-
-    // Fullscreen toggle
-    const toggleFullscreen = useCallback(() => {
-        const container = reactFlowWrapper.current?.closest('.flex-1');
-        if (!container) return;
-        if (!document.fullscreenElement) {
-            container.requestFullscreen?.().then(() => setIsFullscreen(true));
-        } else {
-            document.exitFullscreen?.().then(() => setIsFullscreen(false));
-        }
-    }, []);
-
-    useEffect(() => {
-        const handler = () => {
-            if (document.fullscreenElement) setIsFullscreen(true);
-            else setIsFullscreen(false);
-        };
-        document.addEventListener('fullscreenchange', handler);
-        return () => document.removeEventListener('fullscreenchange', handler);
-    }, []);
-
-    // Keyboard shortcuts: Ctrl+C, Ctrl+V, Ctrl+D
+    // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (isLocked) return;
             const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
             const mod = isMac ? e.metaKey : e.ctrlKey;
-            if (!mod) return;
 
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                const selectedNodes = nodes.filter(n => n.selected).map(n => n.id);
+                if (selectedNodes.length) deleteNodes(selectedNodes);
+                const selectedEdges = edges.filter(e => e.selected).map(e => e.id);
+                if (selectedEdges.length) deleteEdges(selectedEdges);
+                return;
+            }
+
+            if (!mod) return;
             if (e.key === 'c') {
                 const selected = nodes.filter((n) => n.selected);
-                if (selected.length) {
-                    copyToClipboard(selected);
-                }
+                if (selected.length) copyToClipboard(selected);
             } else if (e.key === 'v') {
                 pasteFromClipboard({ x: 30, y: 30 });
             } else if (e.key === 'd') {
                 const selected = nodes.filter((n) => n.selected);
-                if (selected.length) {
-                    duplicateNodes(selected);
-                }
+                if (selected.length) duplicateNodes(selected);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isLocked, nodes, copyToClipboard, pasteFromClipboard, duplicateNodes]);
+    }, [isLocked, nodes, edges, copyToClipboard, pasteFromClipboard, duplicateNodes, deleteNodes, deleteEdges]);
 
-    // Style edges with execution context
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            reactFlowWrapper.current.requestFullscreen();
+            setIsFullscreen(true);
+        } else {
+            document.exitFullscreen();
+            setIsFullscreen(false);
+        }
+    };
+
     const styledEdges = edges.map((edge) => ({
         ...edge,
         animated: executionState === 'running',
     }));
 
-    const [miniMapPos, setMiniMapPos] = useState({ x: 20, y: 20 });
-    const [isDraggingMap, setIsDraggingMap] = useState(false);
-    const mapRef = useRef(null);
-
-    const onMapMouseDown = (e) => {
-        e.stopPropagation();
-        setIsDraggingMap(true);
-    };
-
-    useEffect(() => {
-        const onMouseMove = (e) => {
-            if (isDraggingMap) {
-                setMiniMapPos((prev) => ({
-                    x: Math.max(0, window.innerWidth - e.clientX - 100),
-                    y: Math.max(0, window.innerHeight - e.clientY - 80),
-                }));
-            }
-        };
-        const onMouseUp = () => setIsDraggingMap(false);
-
-        if (isDraggingMap) {
-            window.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('mouseup', onMouseUp);
-        }
-        return () => {
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
-        };
-    }, [isDraggingMap]);
-
-    const interactive = !isLocked;
-
     return (
-        <div className="flex-1 h-full relative overflow-hidden bg-[#fafafa]" ref={reactFlowWrapper}>
+        <div className="flex-1 h-full relative overflow-hidden bg-[#f1f5f9]" ref={reactFlowWrapper}>
             <ReactFlow
                 nodes={nodes}
                 edges={styledEdges}
@@ -372,85 +257,70 @@ export default function PipelineCanvas() {
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onEdgeUpdate={onEdgeUpdate}
-                onEdgeDoubleClick={onEdgeDoubleClick}
                 onConnectStart={onConnectStart}
                 onConnectEnd={onConnectEnd}
                 onDrop={onDrop}
                 onDragOver={onDragOver}
                 onNodeClick={onNodeClick}
                 onPaneClick={onPaneClick}
-                onEdgeClick={onEdgeClick}
                 onNodeContextMenu={onNodeContextMenu}
                 onEdgeContextMenu={onEdgeContextMenu}
-                onBeforeDelete={onBeforeDelete}
                 isValidConnection={isValidConnection}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
-                nodesDraggable={interactive}
-                nodesConnectable={interactive}
-                elementsSelectable={interactive}
-                edgesReconnectable={interactive}
-                deleteKeyCode={['Backspace', 'Delete']}
-                multiSelectionKeyCode="Shift"
+                nodesDraggable={!isLocked}
+                nodesConnectable={!isLocked}
+                elementsSelectable={!isLocked}
+                edgesReconnectable={!isLocked}
+                deleteKeyCode={null} // Handled by manual listener for more control
                 selectionMode={SelectionMode.Partial}
                 selectionOnDrag
                 fitView
+                fitViewOptions={{ maxZoom: 0.8 }}
                 defaultViewport={{ x: 50, y: 50, zoom: 0.75 }}
                 connectionLineStyle={connectionLineStyle}
                 connectionLineType={ConnectionLineType.Bezier}
                 defaultEdgeOptions={defaultEdgeOptions}
                 snapToGrid
                 snapGrid={[20, 20]}
-                className={`transition-colors duration-500 ${isConnecting ? 'bg-zinc-50' : 'bg-[#fafafa]'}`}
+                className={`transition-colors duration-500 ${isConnecting ? 'bg-[#2563eb]/5' : ''}`}
             >
-                <Background variant="lines" gap={40} size={1} color="#f4f4f5" />
+                <Background
+                    variant="dots"
+                    gap={24}
+                    size={1.5}
+                    color="rgba(0, 0, 0, 0.05)"
+                />
 
                 <Controls
                     showInteractive={true}
                     onInteractiveChange={(interactive) => setIsLocked(!interactive)}
-                    className="!bg-white !border-zinc-200 !shadow-sm !rounded-md !m-4 !p-0.5 !flex !flex-row !gap-0"
+                    orientation="horizontal"
+                    className="!flex !flex-row !gap-1 !bg-white !shadow-xl !border-black/5 !rounded-lg !p-1 !bottom-4 !left-4"
                 >
-                    <ControlButton
-                        onClick={toggleFullscreen}
-                        title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-                        aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-                    >
-                        {isFullscreen ? (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-                            </svg>
-                        ) : (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-                            </svg>
-                        )}
+                    <ControlButton onClick={toggleFullscreen} title="Toggle Fullscreen">
+                        {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
                     </ControlButton>
                 </Controls>
 
-                <div
-                    ref={mapRef}
-                    onMouseDown={onMapMouseDown}
-                    style={{ position: 'absolute', bottom: miniMapPos.y, right: miniMapPos.x }}
-                    className={`z-50 cursor-move transition-transform ${isDraggingMap ? 'scale-[1.02]' : ''}`}
-                >
-                    <MiniMap
-                        nodeColor={(n) => `var(--cat-${n.data?.category}, #e4e4e7)`}
-                        maskColor="rgba(255, 255, 255, 0.8)"
-                        className="!bg-white !border-zinc-200 !rounded-lg !shadow-xl !m-0 !relative !bottom-0 !right-0"
-                        style={{ width: 160, height: 100 }}
-                    />
-                </div>
+                <MiniMap
+                    nodeColor={(n) => {
+                        const cat = n.data?.category;
+                        if (cat === 'input') return '#2563eb';
+                        if (cat === 'prep') return '#7c3aed';
+                        if (cat === 'model') return '#d97706';
+                        if (cat === 'eval') return '#059669';
+                        return '#475569';
+                    }}
+                    maskColor="rgba(248, 250, 252, 0.8)"
+                    className="!bg-[#ffffff] !border-black/5 !rounded-xl !shadow-2xl !bottom-4 !right-4 overflow-hidden"
+                    style={{ width: 180, height: 110 }}
+                />
             </ReactFlow>
 
-            {nodes.length === 0 && (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-auto">
-                    <Onboarding />
-                </div>
-            )}
-
             {isConnecting && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-zinc-900 text-white text-[11px] font-bold rounded-full shadow-2xl animate-in fade-in slide-in-from-top-4 uppercase tracking-[0.2em]">
-                    Connecting Nodes...
+                <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 px-6 py-2 bg-[#2563eb]/5 border border-[#2563eb]/20 text-[#2563eb] text-[11px] font-bold rounded-full shadow-lg backdrop-blur-md uppercase tracking-[0.15em] border-black/5">
+                    Establishing Data Flow Link...
                 </div>
             )}
 

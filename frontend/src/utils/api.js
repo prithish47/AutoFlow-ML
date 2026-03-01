@@ -34,6 +34,7 @@ export const pipelineAPI = {
 
 // Execute API
 export const executeAPI = {
+    baseURL: API_BASE,
     run: (nodes, edges, uploaded_files) =>
         api.post('/execute', { nodes, edges, uploaded_files })
 };
@@ -47,6 +48,18 @@ export const uploadAPI = {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     }
+};
+
+// Generate AI API
+export const generateAPI = {
+    generatePipeline: (prompt) => api.post('/generate-pipeline', { prompt })
+};
+
+// Explain API
+export const explainAPI = {
+    explainPipeline: (nodes, edges) => api.post('/explain-pipeline', { nodes, edges }),
+    askQuestion: (question, explanationContext, compactPipeline) =>
+        api.post('/pipeline-question', { question, explanationContext, compactPipeline })
 };
 
 export default api;

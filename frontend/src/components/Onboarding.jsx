@@ -1,14 +1,15 @@
 import { usePipeline } from '../context/PipelineContext';
+import { Zap, Layout, FileCode, PlayCircle } from 'lucide-react';
 
 export default function Onboarding() {
-    const { setNodes, setEdges } = usePipeline();
+    const { setNodes, setEdges, setHasDismissedOnboarding } = usePipeline();
 
     const loadExamplePipeline = () => {
         const exampleNodes = [
             {
                 id: 'csv_upload-example-1',
                 type: 'custom',
-                position: { x: 50, y: 150 },
+                position: { x: 50, y: 100 },
                 data: {
                     label: 'CSV Upload',
                     nodeType: 'csv_upload',
@@ -24,7 +25,7 @@ export default function Onboarding() {
             {
                 id: 'remove_nulls-example-2',
                 type: 'custom',
-                position: { x: 300, y: 150 },
+                position: { x: 450, y: 100 },
                 data: {
                     label: 'Data Cleaning',
                     nodeType: 'remove_nulls',
@@ -40,7 +41,7 @@ export default function Onboarding() {
             {
                 id: 'train_test_split-example-3',
                 type: 'custom',
-                position: { x: 550, y: 150 },
+                position: { x: 750, y: 350 },
                 data: {
                     label: 'Train/Test Split',
                     nodeType: 'train_test_split',
@@ -56,7 +57,7 @@ export default function Onboarding() {
             {
                 id: 'linear_regression-example-4',
                 type: 'custom',
-                position: { x: 800, y: 100 },
+                position: { x: 1150, y: 100 },
                 data: {
                     label: 'Linear Regression',
                     nodeType: 'linear_regression',
@@ -72,7 +73,7 @@ export default function Onboarding() {
             {
                 id: 'accuracy-example-5',
                 type: 'custom',
-                position: { x: 1050, y: 150 },
+                position: { x: 1550, y: 350 },
                 data: {
                     label: 'Model Evaluation',
                     nodeType: 'accuracy',
@@ -97,54 +98,62 @@ export default function Onboarding() {
 
         setNodes(exampleNodes);
         setEdges(exampleEdges);
+        setHasDismissedOnboarding(true);
     };
 
     return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-8 bg-zinc-50/80 backdrop-blur-md">
-            <div className="bg-white border border-zinc-200 rounded-2xl shadow-xl p-12 max-w-[480px] w-full text-center">
+        <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/10 backdrop-blur-[4px]">
+            <div className="bg-[#ffffff] border border-black/5 rounded-[24px] shadow-2xl p-8 max-w-[360px] w-full text-center">
 
-                <div className="flex justify-center mb-8">
-                    <div className="w-16 h-16 rounded-xl bg-zinc-900 flex items-center justify-center text-white">
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
+                <div className="flex justify-center mb-6">
+                    <div className="w-14 h-14 rounded-xl bg-[#2563eb]/10 border border-[#2563eb]/20 flex items-center justify-center text-[#2563eb]">
+                        <Zap size={28} strokeWidth={2.5} className="drop-shadow-sm" />
                     </div>
                 </div>
 
-                <h1 className="text-[24px] font-semibold text-zinc-900 mb-2 tracking-tight">
+                <h1 className="text-[20px] font-bold text-[#0f172a] mb-2 tracking-tight">
                     Welcome to FlowML
                 </h1>
-                <p className="text-[14px] text-zinc-500 mb-10 leading-relaxed font-medium">
-                    A visual environment for designing and executing professional machine learning workflows.
+                <p className="text-[12px] text-[#64748b] mb-8 leading-relaxed font-medium px-4">
+                    Enterprise environment for designing professional ML workflows.
                 </p>
 
-                <div className="grid grid-cols-2 gap-4 mb-10">
-                    {[
-                        { title: 'Templates', text: 'Pre-defined flows', icon: '⚡' },
-                        { title: 'Engine', text: 'High-performance', icon: '⚙️' },
-                    ].map((step, i) => (
-                        <div key={i} className="p-4 rounded-xl border border-zinc-100 bg-zinc-50/50 text-left">
-                            <div className="text-lg mb-2">{step.icon}</div>
-                            <h4 className="text-[11px] font-bold text-zinc-900 uppercase tracking-wider mb-0.5">{step.title}</h4>
-                            <p className="text-[10px] font-medium text-zinc-400">{step.text}</p>
-                        </div>
-                    ))}
+                <div className="grid grid-cols-2 gap-3 mb-8 text-left">
+                    <div className="p-3 rounded-xl border border-black/5 bg-[#f8fafc]">
+                        <Layout className="w-4 h-4 text-[#2563eb] mb-2" />
+                        <h4 className="text-[9px] font-black text-[#0f172a] uppercase tracking-wider mb-1">Canvas</h4>
+                        <p className="text-[9px] text-[#64748b] leading-tight font-medium">Build your DAG.</p>
+                    </div>
+                    <div className="p-3 rounded-xl border border-black/5 bg-[#f8fafc]">
+                        <PlayCircle className="w-4 h-4 text-[#16a34a] mb-2" />
+                        <h4 className="text-[9px] font-black text-[#0f172a] uppercase tracking-wider mb-1">Engine</h4>
+                        <p className="text-[9px] text-[#64748b] leading-tight font-medium">Live execution.</p>
+                    </div>
                 </div>
 
                 <div className="space-y-3">
                     <button
                         onClick={loadExamplePipeline}
-                        className="w-full h-11 text-[13px] font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white transition-all flex items-center justify-center gap-2"
+                        className="w-full h-10 text-[12px] font-bold rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#2563eb]/20"
                     >
-                        Instantiate Starter Flow
+                        Load Starter Pipeline
                     </button>
 
                     <button
-                        onClick={() => setNodes([])}
-                        className="w-full h-11 text-[13px] font-semibold text-zinc-500 hover:bg-zinc-50 rounded-lg transition-colors"
+                        onClick={() => {
+                            setNodes([]);
+                            setHasDismissedOnboarding(true);
+                        }}
+                        className="w-full h-10 text-[12px] font-bold text-[#64748b] hover:bg-[#f8fafc] rounded-xl transition-all border border-transparent hover:border-black/5"
                     >
-                        Start Blank Project
+                        Create Blank Project
                     </button>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-black/5 flex items-center justify-center gap-3 text-[10px] text-[#94a3b8] font-bold uppercase tracking-[0.1em]">
+                    <div className="flex items-center gap-1.5"><FileCode size={11} /> 2.0.1</div>
+                    <div className="w-1 h-1 rounded-full bg-black/5"></div>
+                    <div>Cloud Sync</div>
                 </div>
             </div>
         </div>

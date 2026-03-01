@@ -13,6 +13,8 @@ const authRoutes = require('./routes/auth');
 const pipelineRoutes = require('./routes/pipelines');
 const executeRoutes = require('./routes/execute');
 const uploadRoutes = require('./routes/upload');
+const generateRoutes = require('./routes/generate');
+const explainRoutes = require('./routes/explain');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +33,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/pipelines', pipelineRoutes);
 app.use('/api/execute', executeRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/generate-pipeline', generateRoutes);
+app.use('/api', explainRoutes);
 
 // ─── Serve shared schema ──────────────────────────────────────────────────
 app.get('/api/schema', (req, res) => {
