@@ -1,4 +1,4 @@
-# AutoFlow ML
+# FlowML
 
 A no-code ML pipeline builder where you describe what you want in plain English, and it builds the entire pipeline for you on a visual canvas.
 
@@ -89,7 +89,7 @@ You'll need a `.env` file in the backend with your MongoDB URI, Gemini API key, 
 ## Project structure
 
 ```
-AutoFlow-ML/
+FlowML/
 ├── frontend/          # React app — canvas, nodes, panels, charts
 ├── backend/           # Express API — auth, AI calls, pipeline CRUD
 ├── ml-engine/         # FastAPI — DAG execution, model training
